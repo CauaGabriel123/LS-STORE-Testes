@@ -301,16 +301,38 @@ function buildCatalogAndRender(data) {
   featured = safeArray
     .slice(0, 20)
     .sort(() => Math.random() - 0.5)
-    .map(p => ({
-      id: p.id,
-      name: p.name,
-      price: p.price,
-      imgs: (Array.isArray(p.images) && p.images.length) ? p.images :
-            (Array.isArray(p.image) && p.image.length) ? p.image :
-            (p.img ? [p.img] : []),
-      desc: p.description,
-      status: p.status
-    }));
+    .map(p => {
+  let mainImg = "";
+
+  if (p.images && p.images.length > 0) {
+    mainImg = p.images[0];
+  } else if (p.variations) {
+    const firstVar = Object.values(p.variations)[0];
+    if (firstVar) {
+      if (firstVar.image) mainImg = firstVar.image;
+      else if (firstVar.images && firstVar.images.length > 0) mainImg = firstVar.images[0];
+    }
+  } else if (p.imgs && p.imgs.length > 0) {
+    mainImg = p.imgs[0];
+  } else if (p.img) {
+    mainImg = p.img;
+  } else if (p.image) {
+    mainImg = p.image;
+  }
+
+  if (!mainImg) {
+    mainImg = "https://cauagabriel123.github.io/assets/placeholder.png";
+  }
+
+  return {
+    id: p.id,
+    name: p.name,
+    price: p.price,
+    imgs: [mainImg],
+    desc: p.description,
+    status: p.status
+  };
+});
 
   renderAll();
   initCarousel();
@@ -377,13 +399,37 @@ function badgeHTML(p) {
 }
 function cardHTML(p) {
   const sold = (p.status && p.status.toLowerCase() === 'esgotado') || p.stock <= 0;
+
+  // === Imagem principal adaptada (suporte a variations + compatibilidade retroativa) ===
+  let mainImg = "";
+
+  if (p.images && p.images.length > 0) {
+    // Modelo antigo
+    mainImg = p.images[0];
+  } else if (p.variations) {
+    // Modelo novo (com cores)
+    const firstVariation = Object.values(p.variations)[0];
+    if (firstVariation && firstVariation.image) {
+      mainImg = firstVariation.image;
+    } else if (firstVariation && firstVariation.images && firstVariation.images.length > 0) {
+      mainImg = firstVariation.images[0];
+    }
+  } else if (p.imgs && p.imgs.length > 0) {
+    mainImg = p.imgs[0];
+  } else if (p.img) {
+    mainImg = p.img;
+  } else if (p.image) {
+    mainImg = p.image;
+  }
+
+  // fallback para evitar "?"
+  if (!mainImg) {
+    mainImg = "https://cauagabriel123.github.io/assets/placeholder.png";
+  }
+
   return `<div class="card${sold ? ' soldout' : ''}" data-id="${p.id}">
     ${badgeHTML(p)}
-    <img src="${(Array.isArray(p.images) ? p.images[0]
-  : Array.isArray(p.image) ? p.image[0]
-  : (p.images && p.images.length ? p.images[0]
-  : (p.imgs && p.imgs.length ? p.imgs[0]
-  : p.img || p.image)))}" alt="${p.name}">
+    <img src="${mainImg}" alt="${p.name}">
     <div class="info">
       <p class="name">${p.name}</p>
       <p class="price">${priceHTML(p)}</p>
@@ -469,7 +515,12 @@ function renderFooterProducts(listFromData) {
 
   box.innerHTML = slice.map(p => `
     <div class="footer-card" data-id="${p.id}" role="button" aria-label="${p.name}">
-          <img src="${(p.imgs ? p.imgs[0] : p.img || p.image)}" alt="${p.name}">
+          <img src="${(p.imgs && p.imgs[0]) ||
+  (p.images && p.images[0]) ||
+  (p.variations && Object.values(p.variations)[0]?.image) ||
+  (p.variations && Object.values(p.variations)[0]?.images?.[0]) ||
+  p.img || p.image ||
+  'https://cauagabriel123.github.io/assets/placeholder.png'}" alt="${p.name}">
       <div class="fc-info">
         <div class="fc-name">${p.name}</div>
         <div class="fc-price">R$ ${p.price.toFixed(2).replace('.', ',')}</div>
@@ -1003,13 +1054,22 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>`).join('');
     resultsBox.hidden = false;
 
-    resultsBox.querySelectorAll('.search-item').forEach(it=>{
-      it.onclick = ()=>{
-        const id = it.getAttribute('data-id');
-        LSModal.open(id);
-        resultsBox.hidden = true;
-      };
-    });
+    resultsBox.querySelectorAll('.search-item').forEach(it => {
+  it.onclick = () => {
+    const id = it.getAttribute('data-id');
+    const product = Object.values(catalog)
+      .flat()
+      .find(p => String(p.id) === String(id));
+
+    if (product && product.status && product.status.toLowerCase() === "esgotado") {
+      showAlert("💔 Este produto está esgotado no momento.");
+      return;
+    }
+
+    LSModal.open(id);
+    resultsBox.hidden = true;
+  };
+});
   }
 
   function doSearch(q){
@@ -1658,3 +1718,31 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.dataset.close) modal.hidden = true;
   });
 });
+// ===== LS STORE 2026 — Proteção total contra esgotados =====
+(function protectSoldOutProducts() {
+  // Intercepta toda abertura de modal
+  const originalOpen = window.LSModal.open;
+  window.LSModal.open = function(id) {
+    const product = Object.values(window.catalog || {}).flat().find(p => String(p.id) === String(id));
+
+    if (product && product.status && product.status.toLowerCase() === 'esgotado') {
+      showAlert("💔 Este produto está esgotado e não pode ser adicionado ao carrinho.");
+      return; // bloqueia a abertura do modal
+    }
+
+    // Caso não esteja esgotado, segue normalmente
+    originalOpen.call(window.LSModal, id);
+  };
+
+  // Garante que o botão de adicionar/comprar no modal também respeite o bloqueio
+  document.addEventListener('click', e => {
+    const target = e.target.closest('#lsxAddBtn, #lsxBuyBtn');
+    if (!target) return;
+
+    const current = window.LSModal?.current?.product;
+    if (current && current.status && current.status.toLowerCase() === 'esgotado') {
+      e.preventDefault();
+      showAlert("🚫 Este produto está esgotado. Não é possível adicioná-lo ao carrinho.");
+    }
+  });
+})();
