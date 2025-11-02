@@ -1669,4 +1669,258 @@ body {
   text-align: center !important;
 }
 
-/* Dá um equilíbrio no b
+/* Dá um equilíbrio no bloco inteiro */
+#lsxColors, #lsxSizes {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+}
+.logo-link {
+  display: inline-block;
+}
+
+.logo-link img {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.logo-link img:hover {
+  transform: scale(1.05);
+}
+/* ===== LS STORE • Modal de Parcelas (Fix Premium) ===== */
+.lsx-modal__parcelas {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.45);
+  backdrop-filter: blur(6px);
+  z-index: 99999;
+  animation: fadeInLS .25s ease;
+}
+
+.lsx-modal__parcelas[hidden] {
+  display: none !important;
+}
+
+.lsx-modal__parcelas-box {
+  position: relative;
+  background: #fff;
+  border-radius: 14px;
+  padding: 22px 26px;
+  width: 90%;
+  max-width: 360px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  text-align: center;
+  animation: popInLS .25s ease;
+}
+
+.lsx-modal__parcelas-box h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  background: linear-gradient(90deg,#ff84cb,#9e6cff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 10px;
+}
+
+#installments-list {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0 0;
+}
+
+#installments-list li {
+  border-bottom: 1px solid #f3e7ff;
+  padding: 8px 0;
+  color: #382547;
+  font-weight: 500;
+}
+
+.lsx-modal__parcelas-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: none;
+  background: #fff;
+  font-size: 22px;
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.lsx-modal__parcelas-close:hover {
+  background: linear-gradient(90deg,#ff84cb,#9e6cff);
+  color: #fff;
+  transform: scale(1.1);
+}
+
+@keyframes fadeInLS {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes popInLS {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+/* ===== LS STORE • Topbar Fix ===== */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: #ffe6f3; /* mantém o rosa claro */
+  box-shadow: 0 4px 16px rgba(0,0,0,.06);
+}
+
+.topbar .brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.topbar img.logo {
+  max-height: 46px;
+  height: auto;
+  width: auto;
+  transition: transform 0.2s ease;
+}
+
+.topbar img.logo:hover {
+  transform: scale(1.05);
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
+.icon-btn:focus {
+  outline: none;
+}
+
+.cart-count {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: #ff85cb;
+  color: #fff;
+  border-radius: 50%;
+  font-size: 11px;
+  padding: 2px 5px;
+  font-weight: 600;
+}
+/* ===============================
+   LS STORE 2026 — FIX GERAL DO BOTÃO "X"
+   Mantém o X fixo dentro de modais e menu lateral
+   =============================== */
+
+/* Todos os X dos modais e abas */
+.modal-close,
+.cart-header button,
+.account-area .close-auth,
+.lsx-modal__close,
+.lsx-modal__parcelas-close {
+  position: sticky !important;
+  top: 0 !important;
+  right: 0 !important;
+  z-index: 1000 !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(6px) !important;
+  border: 1px solid rgba(122, 59, 253, 0.15) !important;
+  border-radius: 50% !important;
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 20px !important;
+  color: #7A3BFD !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  margin: 8px 8px 0 auto !important;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.15) !important;
+  transition: all 0.25s ease !important;
+}
+
+/* Hover suave */
+.modal-close:hover,
+.cart-header button:hover,
+.account-area .close-auth:hover,
+.lsx-modal__close:hover,
+.lsx-modal__parcelas-close:hover {
+  background: linear-gradient(90deg,#e96ba8,#7a3bfd) !important;
+  color: #fff !important;
+  transform: scale(1.08) !important;
+  box-shadow: 0 6px 18px rgba(122,59,253,0.25) !important;
+}
+
+/* ===============================
+   FIX EXTRA — Botão "X" do Drawer Lateral (menu)
+   =============================== */
+.drawer-header button {
+  position: sticky !important;
+  top: 0 !important;
+  right: 0 !important;
+  z-index: 2000 !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(6px) !important;
+  border: 1px solid rgba(122, 59, 253, 0.15) !important;
+  border-radius: 50% !important;
+  width: 34px !important;
+  height: 34px !important;
+  font-size: 20px !important;
+  color: #7A3BFD !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  margin-left: auto !important;
+  margin-right: 8px !important;
+  margin-top: 8px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+  transition: all 0.25s ease !important;
+}
+
+/* Hover do X do Drawer */
+.drawer-header button:hover {
+  background: linear-gradient(90deg,#e96ba8,#7a3bfd) !important;
+  color: #fff !important;
+  transform: scale(1.08) !important;
+}
+/* ===== LS STORE 2026 — FIX ESPECÍFICO (X fixo em carrinho e menu lateral) ===== */
+.drawer-header button,
+.cart-header button {
+  position: sticky !important;
+  top: 12px !important;
+  right: 16px !important;
+  z-index: 1000 !important;
+  background: rgba(255, 255, 255, 0.8) !important;
+  border-radius: 50% !important;
+  backdrop-filter: blur(10px) !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.drawer-header button:hover,
+.cart-header button:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 14px rgba(122, 59, 253, 0.25);
+}
+
+/* Garante que o botão X não role junto com o conteúdo */
+.drawer-inner,
+.cart {
+  overflow-y: auto !important;
+  position: relative !important;
+}
