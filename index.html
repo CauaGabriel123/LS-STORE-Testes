@@ -26,14 +26,6 @@
 </head>
 <body>
 
-<!-- Splash -->
-<div id="splash">
-  <div class="splash-card">
-    <img src="assets/logo-ls-store.png" alt="LS Store" class="splash-logo-img">
-    <p>Bem-vindo(a) à LS Store!</p>
-  </div>
-</div>
-
 <header class="topbar">
   <button class="icon-btn" id="menu-btn">☰</button>
   <div class="brand">
@@ -94,14 +86,28 @@
 
 <main class="container">
   <section id="inicio" class="section visible">
-    <div class="carousel large" id="carousel">
-      <div class="slides" id="carousel-slides"></div>
-      <div class="dots" id="carousel-dots"></div>
+    <!-- =========================
+     LS STORE 2026 — Carrossel Fixo de 3 Imagens
+     ========================= -->
+<div class="carousel large" id="fixed-carousel">
+  <div class="slides">
+    <div class="slide active">
+      <img src="assets/rodape_3.PNG" alt="Banner LS Store 1">
     </div>
+    <div class="slide">
+      <img src="assets/rodape_2.PNG" alt="Banner LS Store 2">
+    </div>
+    <div class="slide">
+      <img src="assets/rodape_4.png" alt="Banner LS Store 3">
+    </div>
+  </div>
+  <button class="carousel-btn prev" aria-label="Anterior">❮</button>
+  <button class="carousel-btn next" aria-label="Próximo">❯</button>
+  <div class="dots"></div>
+</div>
 
-    <h2 class="section-title">Destaques da Semana</h2>
-    <div id="featured" class="grid"></div>
-  </section>
+<h2 class="section-title">Destaques da Semana</h2>
+<div id="featured" class="grid"></div>
 
   <!-- Categorias -->
   <section id="blusas" class="section"><h2 class="section-title">Blusas</h2><div class="grid" data-cat="blusas"></div></section>
@@ -271,6 +277,12 @@ window.addEventListener('DOMContentLoaded', () => {
 
   <!-- BOTÕES -->
   <div class="lsx-cta">
+    <!-- CUPOM DE DESCONTO -->
+<div class="coupon-box">
+  <input type="text" id="couponInput" placeholder="Digite seu cupom">
+  <button id="applyCoupon" type="button">Aplicar</button>
+  <p id="couponMessage"></p>
+</div>
     <button class="lsx-btn lsx-btn--primary" id="lsxBuyBtn">COMPRAR</button>
     <button class="lsx-btn lsx-btn--ghost" id="lsxAddBtn" type="button">Adicionar ao carrinho</button>
   </div>
