@@ -10,7 +10,7 @@
 const { jsPDF } = window.jspdf;
 
 // --- Configurações principais
-const WHATSAPP = '5551989235482';
+const WHATSAPP = '+5551989235482';
 const ADMIN_MODE = new URLSearchParams(location.search).get('admin') === 'true';
 const FEES = {
   "Mathias Velho": 5, "Harmonia": 6, "Mato Grande": 7, "São Luís": 8,
@@ -65,27 +65,6 @@ const footerInsta = document.getElementById('footer-insta');
     setTimeout(() => window.open(instaWeb, '_blank', 'noopener'), 700);
   });
 });
-
-// --- Splash (corrigido para travamento)
-window.addEventListener('load', () => {
-  const splash = document.getElementById('splash');
-  if (!splash) return;
-  setTimeout(() => {
-    splash.classList.add('hidden');
-    setTimeout(() => splash.remove(), 800);
-  }, 2000);
-});
-
-// Failsafe extra: garante que o splash desapareça em qualquer cenário
-(function robustSplash(){
-  const kill = () => {
-    const s = document.getElementById('splash');
-    if (s) { s.classList.add('hidden'); setTimeout(()=>s.remove(), 800); }
-  };
-  // backup no DOMContentLoaded e um último timeout independente
-  document.addEventListener('DOMContentLoaded', () => setTimeout(kill, 3500));
-  setTimeout(kill, 5000);
-})();
 
 // --- Áudio (lazy init para iOS)
 let audioCtx;
@@ -463,11 +442,21 @@ function renderGrid(el, arr) {
   }).join('');
 
   // Só permite clique se o produto NÃO estiver esgotado
-  el.querySelectorAll('.card:not(.soldout)').forEach(c => {
-    c.onclick = () => LSModal.open(c.getAttribute('data-id'));
-  });
+el.querySelectorAll('.card:not(.soldout)').forEach(c => {
+  c.onclick = () => {
+    const id = c.getAttribute('data-id');
+    // garante que LSModal existe antes de chamar
+    if (window.LSModal && typeof LSModal.open === "function") {
+      LSModal.open(id);
+    } else {
+      setTimeout(() => {
+        if (window.LSModal && typeof LSModal.open === "function") LSModal.open(id);
+        else showAlert("⚠️ O modal ainda está carregando. Tente novamente em 1 segundo.");
+      }, 600);
+    }
+  };
+});
 }
-
 function renderAll() {
   const f = document.getElementById('featured'); if (f) renderGrid(f, featured);
   // Força aplicação visual dos esgotados nos destaques
@@ -678,11 +667,33 @@ function renderCart() {
   refreshTotalsUI();
 }
 
+// === CORREÇÃO DEFINITIVA (revisada) ===
 function addToCart(prod, size, color, qty = 1) {
-  // agrupa por (id+size+color)
+  // 🔧 Corrige valores vazios (evita undefined no carrinho)
+  size = size || "ÚNICO";
+  color = color || "Única";
+
+  // 🔒 COR obrigatória se o produto tiver variações
+  if (prod.variations && Object.keys(prod.variations).length > 0) {
+    const coresDisponiveis = Object.keys(prod.variations);
+    if (coresDisponiveis.length > 0 && (!color || color === "Padrão")) {
+      showAlert("Selecione uma cor antes de adicionar ao carrinho 💖");
+      return;
+    }
+  }
+
+  // 🛍️ novo item
   const key = (x) => `${x.id}|${x.name}|${x.size}|${x.color}`;
-  const newLine = { id: prod.id, name: prod.name, size, color, price: prod.price, qty: Math.max(1, qty|0) };
-    // ⚠️ Limita a quantidade conforme estoque do produto selecionado
+  const newLine = { 
+    id: prod.id, 
+    name: prod.name, 
+    size, 
+    color, 
+    price: prod.price, 
+    qty: Math.max(1, qty | 0) 
+  };
+
+  // ⚠️ Limita conforme estoque da cor escolhida
   const maxStock = (prod.variations && prod.variations[color])
     ? prod.variations[color].stock
     : (prod.stock || 5);
@@ -694,23 +705,20 @@ function addToCart(prod, size, color, qty = 1) {
 
   const pos = items.findIndex(it => key(it) === key(newLine));
   if (pos >= 0) {
-  const maxStock = (prod.variations && prod.variations[color])
-    ? prod.variations[color].stock
-    : (prod.stock || 5);
-
-  const newTotal = items[pos].qty + newLine.qty;
-  if (newTotal > maxStock) {
-    items[pos].qty = maxStock;
-    showAlert(`⚠️ Estoque máximo atingido: ${maxStock} unidades.`);
-  } else {
-    items[pos].qty = newTotal;
-  }
+    const newTotal = items[pos].qty + newLine.qty;
+    if (newTotal > maxStock) {
+      items[pos].qty = maxStock;
+      showAlert(`⚠️ Estoque máximo atingido: ${maxStock} unidades.`);
+    } else {
+      items[pos].qty = newTotal;
+    }
   } else {
     items.push(newLine);
   }
+
   localStorage.setItem('cartItems', JSON.stringify(items));
 
-  // efeito e feedback
+  // ✨ animação
   const firstImg = (prod.imgs && prod.imgs[0]) || prod.img || '';
   if (firstImg) {
     const btn = document.getElementById('modal-add') || document.getElementById('lsxAddBtn');
@@ -719,9 +727,9 @@ function addToCart(prod, size, color, qty = 1) {
       flyToCart(firstImg, rect.x, rect.y);
     }
   }
+
   cartBtn.classList.add('pulse');
   setTimeout(() => cartBtn.classList.remove('pulse'), 400);
-
   renderCart();
   refreshTotalsUI();
   const el = document.getElementById('cart-count');
@@ -737,7 +745,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ===== ENTREGA/PAGAMENTO/WHATSAPP (mantido, só usa os novos totais) =====
 function calcFee() {
-  if (deliveryType.value !== 'entrega') return 0;
+  const entrega = deliveryType.value.toLowerCase();
+  if (entrega !== 'entrega') return 0;
   const bairro = neighborhood.value;
   const fee = FEES[bairro];
   return (typeof fee === 'number') ? fee : 0;
@@ -760,7 +769,76 @@ function refreshFinalTotals() {
   finalTotal.textContent = final.toFixed(2).replace('.', ',');
 }
 refreshTotalsUI();
+// === CORREÇÃO DA TELE (atualiza ao trocar entrega/bairro) ===
+document.addEventListener('DOMContentLoaded', () => {
+  const deliverySel = document.getElementById('delivery-type');
+  const bairroSel = document.getElementById('neighborhood');
 
+  if (deliverySel) {
+    deliverySel.addEventListener('change', refreshFinalTotals);
+  }
+  if (bairroSel) {
+    bairroSel.addEventListener('change', refreshFinalTotals);
+  }
+});
+// 🔧 Correção: conectar campos do formulário
+const nameInput = document.getElementById('client-name');
+const paymentSel = document.getElementById('payment');
+const deliveryType = document.getElementById('delivery-type');
+const neighborhood = document.getElementById('neighborhood');
+const orderNotes = document.getElementById('order-notes');
+const cashRadios = document.querySelectorAll('input[name="troco"]');
+const cashAmount = document.getElementById('cash-amount');
+// === EXIBIÇÃO DINÂMICA DE CAMPOS DE ENTREGA E TROCO ===
+document.addEventListener('DOMContentLoaded', () => {
+  const paymentSel = document.getElementById('payment');
+  const deliverySel = document.getElementById('delivery-type');
+  const cashSection = document.getElementById('cash-section');
+  const cashAmount = document.getElementById('cash-amount');
+  const addressFields = document.getElementById('address-fields');
+  const cashRadios = document.querySelectorAll('input[name="cash-change"]');
+
+  // --- Função para atualizar exibição dos campos ---
+  function updateVisibility() {
+    // Exibir/ocultar campos de endereço
+    if (deliverySel && deliverySel.value.toLowerCase() === 'entrega') {
+      addressFields.style.display = 'block';
+    } else {
+      addressFields.style.display = 'none';
+    }
+
+    // Exibir/ocultar seção de troco
+    if (paymentSel && paymentSel.value.toLowerCase() === 'dinheiro') {
+      cashSection.style.display = 'block';
+    } else {
+      cashSection.style.display = 'none';
+      cashAmount.style.display = 'none';
+    }
+  }
+
+  // --- Eventos de mudança ---
+  if (paymentSel) {
+    paymentSel.addEventListener('change', updateVisibility);
+  }
+  if (deliverySel) {
+    deliverySel.addEventListener('change', updateVisibility);
+  }
+
+  // --- Mostrar campo de valor de troco quando seleciona "sim" ---
+  cashRadios.forEach(radio => {
+    radio.addEventListener('change', () => {
+      if (radio.value === 'sim' && radio.checked) {
+        cashAmount.style.display = 'inline-block';
+      } else if (radio.value === 'nao' && radio.checked) {
+        cashAmount.style.display = 'none';
+        cashAmount.value = '';
+      }
+    });
+  });
+
+  // --- Estado inicial ---
+  updateVisibility();
+});
 checkout.onclick = () => {
   if (items.length === 0) { showAlert('Seu carrinho está vazio.'); return; }
   if (!nameInput.value.trim()) { showAlert('Por favor, informe seu nome.'); return; }
@@ -784,14 +862,31 @@ checkout.onclick = () => {
   let total = sumTotal();
   if (typeof feeRaw === 'number') total += feeRaw;
 
-  let valorPago = '', troco = '';
-  if (payment === 'Dinheiro') {
-    const trocoOp = [...cashRadios].find(r => r.checked)?.value || 'nao';
-    if (trocoOp === 'sim' && cashAmount.value) {
-      valorPago = parseFloat(cashAmount.value.replace(',', '.')).toFixed(2).replace('.', ',');
-      troco = (parseFloat(valorPago.replace(',', '.')) - total).toFixed(2).replace('.', ',');
-    } else troco = 'Não precisa';
+    let valorPago = '', troco = '';
+if (payment === 'Dinheiro') {
+  const trocoRadios = document.querySelectorAll('input[name="cash-change"]');
+  const trocoSelecionado = [...trocoRadios].find(r => r.checked);
+
+  // 🔒 Obriga escolher "Sim" ou "Não"
+  if (!trocoSelecionado) {
+    showAlert('Por favor, selecione se precisa de troco. 💵');
+    return;
   }
+
+  const trocoOp = trocoSelecionado.value;
+
+  // 🔒 Se escolher "Sim", obriga preencher o valor
+  if (trocoOp === 'sim') {
+    if (!cashAmount.value.trim()) {
+      showAlert('Informe o valor para troco. 💸');
+      return;
+    }
+    valorPago = parseFloat(cashAmount.value.replace(',', '.')).toFixed(2).replace('.', ',');
+    troco = (parseFloat(valorPago.replace(',', '.')) - total).toFixed(2).replace('.', ',');
+  } else {
+    troco = 'Não precisa';
+  }
+}
 
   const itensTxt = items.map(it => `
 ---------------------------------
@@ -826,6 +921,7 @@ checkout.onclick = () => {
 ${itensTxt}
 
 💳 *Pagamento:* ${payment}
+${appliedCoupon ? `🏷️ *Cupom:* ${appliedCoupon} (${COUPONS[appliedCoupon] * 100}% off aplicado)` : ''}
 🚚 *Taxa de entrega:* ${taxaTxt}
 💰 *Total final:* R$ ${total.toFixed(2).replace('.', ',')}
 ${
@@ -839,11 +935,34 @@ ${
   const url = `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(message)}`;
 
   const pop = document.getElementById('popup-overlay');
+if (pop) {
   pop.hidden = false;
   pop.classList.add('show');
+}
 
-  setTimeout(() => { window.location.href = url; }, 1000);
-  setTimeout(() => { pop.classList.remove('show'); pop.hidden = true; }, 3500);
+// === Envio garantido no iPhone e Android ===
+const encodedMsg = encodeURIComponent(message);
+const waWeb = `https://wa.me/${WHATSAPP}?text=${encodedMsg}`;
+const waApp = `whatsapp://send?phone=${WHATSAPP}&text=${encodedMsg}`;
+
+try {
+  // tenta abrir o WhatsApp Web
+  window.location.href = waWeb;
+
+  // fallback: se o navegador bloquear, tenta o app
+  setTimeout(() => {
+    window.location.href = waApp;
+  }, 1000);
+} catch (err) {
+  // última tentativa
+  window.location.href = waApp;
+}
+
+// fecha o popup visual
+setTimeout(() => {
+  pop.classList.remove('show');
+  pop.hidden = true;
+}, 2500);
 };
 
 // =============================
@@ -1579,7 +1698,7 @@ function fill(p) {
 
   // Define dados básicos
   els.title.textContent = p.name;
-  els.price.textContent = currency(p.price);
+  setOriginalPriceValue(p.price);
   els.installments.textContent = calcInstallments(p.price);
   $('#lsxDescription').textContent = p.description || 'Sem descrição disponível.';
 
@@ -1603,7 +1722,7 @@ function fill(p) {
   // Valida botões
   validateButtons(p);
 }
-// 💎 LSX Premium Upgrade — comportamento atualizado dos botões
+// 💎 LSX Premium Upgrade — comportamento atualizado dos botões (corrigido)
 function bindModalButtons() {
   const addBtn = document.getElementById("lsxAddBtn");
   const buyBtn = document.getElementById("lsxBuyBtn");
@@ -1617,14 +1736,26 @@ function bindModalButtons() {
       return;
     }
 
-    const color = ctx.selectedColor || "Única";
-    const size = ctx.selectedSize || "ÚNICO";
+    const color = ctx.selectedColor;
+    const size = ctx.selectedSize;
     const qty = ctx.qty || 1;
 
-    // Adiciona o produto ao carrinho
-    addToCart(prod, size, color, qty);
+    // ⚠️ Se o produto tiver variações, obriga escolher cor e tamanho
+    if (prod.variations && Object.keys(prod.variations).length > 0) {
+      if (!color) {
+        showAlert("Selecione uma cor antes de adicionar 💖");
+        return;
+      }
+      if (!size && prod.variations[color] && prod.variations[color].sizes?.length > 1) {
+        showAlert("Selecione um tamanho 💜");
+        return;
+      }
+    }
 
-    // ✨ Animação: produto voando até o carrinho
+    // Adiciona ao carrinho com cor real selecionada
+    addToCart(ctx.product, ctx.selectedSize || "ÚNICO", ctx.selectedColor || "Única", ctx.qty || 1);
+
+    // ✨ Animação do produto voando até o carrinho
     const firstImg =
       (prod.imgs && prod.imgs[0]) ||
       (prod.images && prod.images[0]) ||
@@ -1637,26 +1768,44 @@ function bindModalButtons() {
       flyToCart(firstImg, rect.x, rect.y);
     }
 
-    // Espera o voo terminar antes de fechar / abrir carrinho
+    // Fecha modal e abre carrinho (somente no "Comprar")
     setTimeout(() => {
       const modal = document.getElementById("lsxModal");
       if (modal) modal.classList.remove("is-open");
       document.body.classList.remove("lsx-no-scroll");
 
       if (action === "buy") {
-        // Se for "COMPRAR", abre o carrinho direto
         const cart = document.getElementById("cart");
         if (cart) {
           cart.setAttribute("aria-hidden", "false");
           renderCart();
         }
       }
-      // Se for "Adicionar", não abre carrinho nem alerta
-    }, 800); // tempo da animação
+    }, 800);
   }
 
-  if (addBtn) addBtn.onclick = () => handleAddOrBuy("add");
-  if (buyBtn) buyBtn.onclick = () => handleAddOrBuy("buy");
+  if (addBtn) {
+    addBtn.onclick = () => {
+      const ctx = window.LSModal?.current || null;
+      const prod = ctx?.product || null;
+      if (!prod) return showAlert("Erro ao adicionar: produto não encontrado.");
+
+      // validações obrigatórias
+      if (!validateSelections(prod)) return;
+      handleAddOrBuy("add");
+    };
+  }
+
+  if (buyBtn) {
+    buyBtn.onclick = () => {
+      const ctx = window.LSModal?.current || null;
+      const prod = ctx?.product || null;
+      if (!prod) return showAlert("Erro ao comprar: produto não encontrado.");
+
+      if (!validateSelections(prod)) return;
+      handleAddOrBuy("buy");
+    };
+  }
 }
 function open(id){
   getProducts().then(list=>{
@@ -1718,31 +1867,151 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.dataset.close) modal.hidden = true;
   });
 });
-// ===== LS STORE 2026 — Proteção total contra esgotados =====
-(function protectSoldOutProducts() {
-  // Intercepta toda abertura de modal
-  const originalOpen = window.LSModal.open;
-  window.LSModal.open = function(id) {
-    const product = Object.values(window.catalog || {}).flat().find(p => String(p.id) === String(id));
 
-    if (product && product.status && product.status.toLowerCase() === 'esgotado') {
-      showAlert("💔 Este produto está esgotado e não pode ser adicionado ao carrinho.");
-      return; // bloqueia a abertura do modal
+// ===== LS STORE • Sistema de Cupons (Produto Individual) =====
+const COUPONS = {
+  "LS10": 0.10,
+  "LS15": 0.15,
+  "LS20": 0.20
+};
+
+let appliedCoupon = null;
+
+document.addEventListener("click", e => {
+  if (e.target && e.target.id === "applyCoupon") {
+    const input = document.getElementById("couponInput");
+    const message = document.getElementById("couponMessage");
+    const code = input.value.trim().toUpperCase();
+    const priceEl = document.getElementById("lsxPrice");
+
+    if (!code) {
+      message.textContent = "Digite um cupom.";
+      message.style.color = "#e74c3c";
+      return;
     }
 
-    // Caso não esteja esgotado, segue normalmente
-    originalOpen.call(window.LSModal, id);
-  };
+    if (COUPONS[code]) {
+      appliedCoupon = code;
+      const discount = COUPONS[code];
+      const originalPrice = parseFloat(priceEl.dataset.originalPrice || priceEl.textContent.replace(/[^\d,]/g, "").replace(",", "."));
+      const newPrice = (originalPrice * (1 - discount)).toFixed(2);
 
-  // Garante que o botão de adicionar/comprar no modal também respeite o bloqueio
-  document.addEventListener('click', e => {
-    const target = e.target.closest('#lsxAddBtn, #lsxBuyBtn');
-    if (!target) return;
+      // 🔥 Mostra preço novo + antigo riscado
+      priceEl.innerHTML = `
+        R$ ${newPrice.replace(".", ",")}
+        <span style="text-decoration:line-through;color:#8a7aa5;font-size:14px;margin-left:8px;">
+          R$ ${originalPrice.toFixed(2).replace(".", ",")}
+        </span>
+      `;
 
-    const current = window.LSModal?.current?.product;
-    if (current && current.status && current.status.toLowerCase() === 'esgotado') {
-      e.preventDefault();
-      showAlert("🚫 Este produto está esgotado. Não é possível adicioná-lo ao carrinho.");
+      priceEl.dataset.discountedPrice = newPrice;
+      message.textContent = `🏷️ Cupom ${code} aplicado com sucesso!`;
+      message.style.color = "#27ae60";
+    } else {
+      // 💥 ESTA PARTE FALTAVA
+      message.textContent = "❌ Cupom inválido!";
+      message.style.color = "#e91e63";
     }
+  }
+});
+
+function setOriginalPriceValue(price) {
+  const el = document.getElementById("lsxPrice");
+  el.dataset.originalPrice = price;
+  el.textContent = `R$ ${parseFloat(price).toFixed(2).replace(".", ",")}`;
+  delete el.dataset.discountedPrice;
+  appliedCoupon = null;
+  const msg = document.getElementById("couponMessage");
+  if (msg) msg.textContent = "";
+}
+
+const oldAddToCart = window.addToCart;
+window.addToCart = function (product, size, color, qty = 1) {
+  const priceEl = document.getElementById("lsxPrice");
+  let finalPrice = product.price;
+  if (priceEl && priceEl.dataset.discountedPrice) {
+    finalPrice = parseFloat(priceEl.dataset.discountedPrice);
+  }
+
+  // Mantém preço atualizado e repassa todos os parâmetros corretamente
+  const discountedProduct = { ...product, price: finalPrice };
+  oldAddToCart(discountedProduct, size, color, qty);
+};
+
+// ============================
+// LS STORE 2026 — Carrossel Fixo de 3 Imagens (com suporte a toque)
+// ============================
+const fixedCarousel = document.getElementById('fixed-carousel');
+if (fixedCarousel) {
+  const slidesContainer = fixedCarousel.querySelector('.slides');
+  const slides = fixedCarousel.querySelectorAll('.slide');
+  const dotsContainer = fixedCarousel.querySelector('.dots');
+  const prevBtn = fixedCarousel.querySelector('.prev');
+  const nextBtn = fixedCarousel.querySelector('.next');
+  let currentSlide = 0;
+
+  // Cria dots dinamicamente
+  slides.forEach((_, i) => {
+    const dot = document.createElement('div');
+    dot.classList.add('dot');
+    if (i === 0) dot.classList.add('active');
+    dot.addEventListener('click', () => showSlide(i));
+    dotsContainer.appendChild(dot);
   });
-})();
+
+  const dots = fixedCarousel.querySelectorAll('.dot');
+
+  function showSlide(index) {
+    slides.forEach((s, i) => s.classList.toggle('active', i === index));
+    dots.forEach((d, i) => d.classList.toggle('active', i === index));
+    slidesContainer.style.transform = `translateX(-${index * 100}%)`;
+    currentSlide = index;
+  }
+
+  prevBtn.addEventListener('click', () => {
+    showSlide((currentSlide - 1 + slides.length) % slides.length);
+  });
+  nextBtn.addEventListener('click', () => {
+    showSlide((currentSlide + 1) % slides.length);
+  });
+
+  // Auto play (5 segundos)
+  setInterval(() => {
+    showSlide((currentSlide + 1) % slides.length);
+  }, 5000);
+
+  // === Suporte a toque (arrastar com o dedo) ===
+  let startX = 0;
+  let deltaX = 0;
+  let isDragging = false;
+
+  function startTouch(e) {
+    isDragging = true;
+    startX = e.touches ? e.touches[0].clientX : e.clientX;
+    deltaX = 0;
+  }
+  function moveTouch(e) {
+    if (!isDragging) return;
+    const x = e.touches ? e.touches[0].clientX : e.clientX;
+    deltaX = x - startX;
+  }
+  function endTouch() {
+    if (!isDragging) return;
+    isDragging = false;
+    const threshold = 40; // mínimo de pixels pra trocar
+    if (deltaX > threshold) {
+      showSlide((currentSlide - 1 + slides.length) % slides.length);
+    } else if (deltaX < -threshold) {
+      showSlide((currentSlide + 1) % slides.length);
+    }
+    deltaX = 0;
+  }
+
+  slidesContainer.addEventListener('touchstart', startTouch, { passive: true });
+  slidesContainer.addEventListener('touchmove', moveTouch, { passive: true });
+  slidesContainer.addEventListener('touchend', endTouch);
+  slidesContainer.addEventListener('mousedown', startTouch);
+  slidesContainer.addEventListener('mousemove', moveTouch);
+  slidesContainer.addEventListener('mouseup', endTouch);
+  slidesContainer.addEventListener('mouseleave', () => (isDragging = false));
+}
