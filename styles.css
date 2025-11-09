@@ -67,6 +67,8 @@ img { max-width:100%; display:block; }
   border-bottom: 1px solid rgba(233, 107, 168, 0.25);
   box-shadow: 0 4px 20px rgba(122, 59, 253, 0.12);
   transition: all 0.3s ease;
+  backdrop-filter: blur(14px) saturate(180%) brightness(1.15);
+
 }
 
 /* Brilho animado na borda inferior */
@@ -941,15 +943,6 @@ body {
   position: relative;
   z-index: 1;
   overflow-x: hidden;
-}
-
-.topbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 9999;
-  -webkit-transform: translateZ(0);
 }
 
 .search-wrap {
@@ -1900,6 +1893,23 @@ body {
 #fixed-carousel .dot.active {
   background: #fff;
   transform: scale(1.3);
+  }
+  /* ——— Brilho suave no carrossel fixo (coerente com o carousel.large) ——— */
+#fixed-carousel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top right, rgba(233,107,168,0.08), transparent 60%);
+  pointer-events: none;
+  animation: floatLight 6s ease-in-out infinite alternate;
+  z-index: 1; /* fica acima do fundo do carrossel, abaixo do conteúdo */
+}
+
+/* Garantir empilhamento correto (não cobre imagem, setas e dots) */
+#fixed-carousel .slides { position: relative; z-index: 2; }
+/* setas e dots já têm z-index alto, mas reforço para blindar */
+.carousel-btn, #fixed-carousel .dots { z-index: 3; }
+
 }
 /* ===== LS STORE 2026.5 • HOME FOCUS GLOW ===== */
 
