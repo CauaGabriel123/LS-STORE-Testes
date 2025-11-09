@@ -112,18 +112,6 @@ img { max-width:100%; display:block; }
   transform: scale(1.08);
   box-shadow: 0 6px 20px rgba(122,59,253,.35);
 }
-.icon-btn {
-  border:0; background:transparent; font-size:26px; line-height:1;
-  padding:6px 10px; color:var(--ink); cursor:pointer;
-}
-.enter-btn {
-  background:linear-gradient(90deg,var(--pink),var(--lilac));
-  color:#fff; border:0; border-radius:12px;
-  font-weight:700; padding:8px 14px;
-  box-shadow:0 3px 10px rgba(122,59,253,.25);
-  cursor:pointer; transition:transform .15s ease;
-}
-.enter-btn:hover { transform:scale(1.05); }
 .text-btn {
   border:0; background:transparent; color:#7A3BFD;
   font-weight:700; cursor:pointer;
