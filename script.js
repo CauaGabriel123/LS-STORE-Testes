@@ -2015,3 +2015,14 @@ if (fixedCarousel) {
   slidesContainer.addEventListener('mouseup', endTouch);
   slidesContainer.addEventListener('mouseleave', () => (isDragging = false));
 }
+/* ===== LS STORE 2026.5 • Home Glow Script ===== */
+
+// Ativa animação das seções visíveis ao rolar
+window.addEventListener('scroll', () => {
+  document.querySelectorAll('.section').forEach(sec => {
+    const rect = sec.getBoundingClientRect();
+    if (rect.top < window.innerHeight - 100) {
+      sec.classList.add('visible');
+    }
+  });
+});
