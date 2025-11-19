@@ -57,13 +57,13 @@ const instaWeb = `https://www.instagram.com/${INSTAGRAM_HANDLE.replace('@','')}`
 const instaLink = document.getElementById('insta-link');
 const footerInsta = document.getElementById('footer-insta');
 [instaLink, footerInsta].forEach(a => {
-  if (!a) return;
+  if (!a) return; // ← AGORA NÃO QUEBRA MAIS NADA
   a.href = instaWeb;
-  a.addEventListener('click', e => {
+  a.onclick = (e) => {
     e.preventDefault();
     window.location.href = instaDeepLink;
     setTimeout(() => window.open(instaWeb, '_blank', 'noopener'), 700);
-  });
+  };
 });
 
 // --- Áudio (lazy init para iOS)
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- Navegação entre seções
-document.querySelectorAll('.drawer-links a[data-section], .footer a[data-section]').forEach(a => {
+document.querySelectorAll('#drawer a[data-section], .footer a[data-section]').forEach(a => {
   a.onclick = e => {
     e.preventDefault();
     showSection(a.getAttribute('data-section'));
@@ -753,13 +753,28 @@ function calcFee() {
 }
 function refreshFinalTotals() {
   const produtos = sumTotal();
+
+  // 🔥 Se cupom TELEFREE estiver ativo → frete sempre zero
+  if (appliedCoupon === "TELEFREE") {
+    deliveryFee.style.display = "none";
+    feeValue.textContent = "0,00";
+
+    const final = produtos; // sem taxa!
+    finalTotal.textContent = final.toFixed(2).replace('.', ',');
+
+    return; // impede que o frete volte
+  }
+
+  // 🔥 Caso NÃO seja TELEFREE → cálculo normal
   const fee = calcFee();
 
   if (deliveryType.value === 'entrega') {
     deliveryFee.style.display = 'block';
     const bairro = neighborhood.value;
     const val = FEES[bairro];
-    feeValue.textContent = (typeof val === 'number' ? val : 0).toFixed(2).replace('.', ',');
+    feeValue.textContent = (typeof val === 'number' ? val : 0)
+      .toFixed(2)
+      .replace('.', ',');
   } else {
     deliveryFee.style.display = 'none';
     feeValue.textContent = '0,00';
@@ -860,7 +875,11 @@ checkout.onclick = () => {
   const obs = orderNotes.value.trim() || 'Nenhuma';
   const feeRaw = entrega === 'entrega' ? FEES[bairro] || 'consultar' : 0;
   let total = sumTotal();
-  if (typeof feeRaw === 'number') total += feeRaw;
+
+// Se o cupom TELEFREE estiver ativo → não soma frete!
+if (appliedCoupon !== "TELEFREE" && typeof feeRaw === "number") {
+  total += feeRaw;
+}
 
     let valorPago = '', troco = '';
 if (payment === 'Dinheiro') {
@@ -1868,53 +1887,133 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// ===== LS STORE • Sistema de Cupons (Produto Individual) =====
+// ===== LS STORE • SISTEMA DE CUPONS APRIMORADO =====
+
+// Cupons disponíveis
 const COUPONS = {
-  "LS10": 0.10,
-  "LS15": 0.15,
-  "LS20": 0.20
+  "BEMVINDA10": { type: "percent", value: 0.10 },
+  "TELEFREE": { type: "frete", value: 0 }
 };
 
 let appliedCoupon = null;
 
 document.addEventListener("click", e => {
-  if (e.target && e.target.id === "applyCoupon") {
-    const input = document.getElementById("couponInput");
-    const message = document.getElementById("couponMessage");
-    const code = input.value.trim().toUpperCase();
-    const priceEl = document.getElementById("lsxPrice");
+  if (!e.target || (e.target.id !== "applyCoupon" && e.target.id !== "applyCartCoupon")) return;
 
-    if (!code) {
-      message.textContent = "Digite um cupom.";
+  const isCart = e.target.id === "applyCartCoupon";
+  const input = document.getElementById(isCart ? "cartCouponInput" : "couponInput");
+  const message = document.getElementById(isCart ? "cartCouponMessage" : "couponMessage");
+  const button = e.target;
+  const code = input.value.trim().toUpperCase();
+
+  // Reseta cor do botão
+  button.style.background = "linear-gradient(45deg, #e96ba8, #7a3bfd)";
+
+  if (!code) {
+    message.textContent = "Digite um cupom.";
+    message.style.color = "#e74c3c";
+    return;
+  }
+
+  const coupon = COUPONS[code];
+  if (!coupon) {
+    message.textContent = "❌ Cupom inválido!";
+    message.style.color = "#e91e63";
+    return;
+  }
+
+  // Verifica validade por data
+  if (coupon.expires && new Date() > new Date(coupon.expires)) {
+    message.textContent = "⚠️ Este cupom expirou.";
+    message.style.color = "#f39c12";
+    return;
+  }
+
+  // Verifica valor mínimo
+  const subtotal = sumTotal();
+  if (coupon.minTotal && subtotal < coupon.minTotal) {
+    message.textContent = `⚠️ Cupom válido apenas para compras acima de R$ ${coupon.minTotal.toFixed(2).replace('.', ',')}.`;
+    message.style.color = "#f39c12";
+    return;
+  }
+
+  // Verifica cupom de frete grátis
+  if (coupon.type === "frete") {
+    if (deliveryType.value !== "entrega") {
+      message.textContent = "🚫 O cupom TELEFREE só é válido para entregas.";
       message.style.color = "#e74c3c";
       return;
     }
 
-    if (COUPONS[code]) {
-      appliedCoupon = code;
-      const discount = COUPONS[code];
-      const originalPrice = parseFloat(priceEl.dataset.originalPrice || priceEl.textContent.replace(/[^\d,]/g, "").replace(",", "."));
-      const newPrice = (originalPrice * (1 - discount)).toFixed(2);
+    appliedCoupon = "TELEFREE";
+    deliveryFee.style.display = "none";
+    feeValue.textContent = "0,00";
+    finalTotal.textContent = subtotal.toFixed(2).replace('.', ',');
+    message.textContent = "🚚 Frete grátis aplicado!";
+    showRemoveCouponButton();
+    message.style.color = "#27ae60";
+    button.style.background = "linear-gradient(45deg, #27ae60, #2ecc71)";
+    return;
+  }
 
-      // 🔥 Mostra preço novo + antigo riscado
-      priceEl.innerHTML = `
-        R$ ${newPrice.replace(".", ",")}
-        <span style="text-decoration:line-through;color:#8a7aa5;font-size:14px;margin-left:8px;">
-          R$ ${originalPrice.toFixed(2).replace(".", ",")}
-        </span>
-      `;
-
-      priceEl.dataset.discountedPrice = newPrice;
-      message.textContent = `🏷️ Cupom ${code} aplicado com sucesso!`;
-      message.style.color = "#27ae60";
-    } else {
-      // 💥 ESTA PARTE FALTAVA
-      message.textContent = "❌ Cupom inválido!";
-      message.style.color = "#e91e63";
+  // Cupom por categoria (exemplo: BIQUINI10)
+  if (coupon.type === "category") {
+    const items = JSON.parse(localStorage.getItem("cartItems")) || [];
+    const hasCategory = items.some(i => (i.category || "").toLowerCase() === coupon.category);
+    if (!hasCategory) {
+      message.textContent = `⚠️ Cupom válido apenas para ${coupon.category}.`;
+      message.style.color = "#f39c12";
+      return;
     }
   }
-});
 
+  // Cupom percentual (desconto geral)
+  if (coupon.type === "percent") {
+    const discount = coupon.value;
+    const newTotal = subtotal * (1 - discount);
+    appliedCoupon = code;
+
+    finalTotal.textContent = newTotal.toFixed(2).replace('.', ',');
+    message.textContent = `🏷️ Cupom ${code} aplicado (${discount * 100}% OFF)`;
+    showRemoveCouponButton();
+    message.style.color = "#27ae60";
+    button.style.background = "linear-gradient(45deg, #27ae60, #2ecc71)";
+    }
+});
+// ============================
+// BOTÃO "REMOVER CUPOM"
+// ============================
+
+const removeCartCouponBtn = document.getElementById("removeCartCoupon");
+
+function removeCoupon() {
+  appliedCoupon = null;
+
+  // Reseta texto
+  const msg = document.getElementById("cartCouponMessage");
+  if (msg) msg.textContent = "";
+
+  // Reseta input
+  const input = document.getElementById("cartCouponInput");
+  if (input) input.value = "";
+
+  // Esconde botão
+  removeCartCouponBtn.style.display = "none";
+
+  // Recalcula tudo (volta frete normal)
+  refreshTotalsUI();
+  refreshFinalTotals();
+}
+
+// Evento do botão
+if (removeCartCouponBtn) {
+  removeCartCouponBtn.addEventListener("click", removeCoupon);
+}
+
+// Mostrar botão quando cupom for aplicado
+function showRemoveCouponButton() {
+  if (removeCartCouponBtn) removeCartCouponBtn.style.display = "block";
+  }
 function setOriginalPriceValue(price) {
   const el = document.getElementById("lsxPrice");
   el.dataset.originalPrice = price;
